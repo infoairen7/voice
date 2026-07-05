@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>逆再生ボイススタジオ | Reverse Voice Party</title>
+  <meta name="description" content="ブラウザだけで録音→逆再生→変な声。配信ネタ用の逆再生ボイスチェンジャーツール。音声は端末内だけで処理されます。" />
+
+  <!-- フォント（読み込めない環境でもシステムフォントで動きます） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@400;500;700&family=DotGothic16&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- 背景のネオン装飾（飾りだけなので読み上げ対象外） -->
+  <div class="bg-deco" aria-hidden="true">
+    <span class="blob blob-1"></span>
+    <span class="blob blob-2"></span>
+    <span class="blob blob-3"></span>
+  </div>
+
+  <!-- ===== ヘッダー ===== -->
+  <header class="site-header">
+    <div class="title-wrap">
+      <h1 class="logo">
+        逆再生<span class="logo-accent">ボイス</span>スタジオ
+      </h1>
+      <p class="logo-sub">REVERSE VOICE PARTY</p>
+      <p class="tagline">録って、逆にして、変な声で笑おう。</p>
+    </div>
+    <div class="header-right">
+      <span id="statusChip" class="status-chip is-idle" role="status" aria-live="polite">待機中</span>
+      <button id="miniModeBtn" class="ghost-btn" type="button" aria-pressed="false">ミニモード</button>
+    </div>
+  </header>
+
+  <!-- ===== エラー表示バー ===== -->
+  <div id="errorBar" class="error-bar" role="alert" hidden>
+    <span class="error-icon" aria-hidden="true">⚠</span>
+    <span id="errorText"></span>
+    <button id="errorClose" class="error-close" type="button" aria-label="エラーを閉じる">×</button>
+  </div>
+
+  <!-- ===== メイン ===== -->
+  <main class="layout">
+    <!-- 左カラム：録音デッキ -->
+    <section class="panel deck" aria-labelledby="deckTitle">
+      <h2 id="deckTitle" class="panel-title"><span aria-hidden="true">🎙</span> 録音デッキ</h2>
+
+      <!-- 録音操作 -->
+      <div class="rec-area">
+        <div class="rec-ring" id="recRing">
+          <button id="recBtn" class="rec-btn" type="button">
+            <span class="rec-dot" aria-hidden="true"></span>
+            <span class="rec-btn-label">録音<br />スタート</span>
+          </button>
+          <div id="countdownOverlay" class="countdown" hidden>3</div>
+        </div>
+
+        <div class="rec-side">
+          <div class="timer" id="timerDisplay" aria-live="off">
+            0:00 <span class="timer-max">/ 0:15</span>
+          </div>
+          <button id="stopBtn" class="big-btn btn-stop" type="button" disabled>
+            <span aria-hidden="true">■</span> 録音ストップ
+          </button>
+          <label class="toggle-label">
+            <input type="checkbox" id="countdownToggle" />
+            3秒カウントダウンしてから録音
+          </label>
+        </div>
+      </div>
+
+      <!-- 再生系ボタン -->
+      <div class="play-row">
+        <button id="playBtn" class="big-btn btn-play" type="button" disabled>
+          <span aria-hidden="true">▶</span> 普通に再生
+        </button>
+        <button id="reverseBtn" class="big-btn btn-reverse" type="button" disabled>
+          <span aria-hidden="true">◀</span> 逆再生する
+        </button>
+        <button id="voiceReverseBtn" class="big-btn btn-voice" type="button" disabled>
+          <span aria-hidden="true">✦</span> 変な声で逆再生
+        </button>
+        <button id="retakeBtn" class="big-btn btn-retake" type="button" disabled>
+          <span aria-hidden="true">↺</span> 録り直す
+        </button>
+      </div>
+
+      <!-- 波形ビジュアライザー -->
+      <canvas id="visualizer" class="visualizer" width="800" height="140" aria-hidden="true"></canvas>
+
+      <!-- 音量メーター -->
+      <div class="meter-row">
+        <span class="meter-label">マイク入力</span>
+        <div class="meter" aria-hidden="true">
+          <div id="meterFill" class="meter-fill"></div>
+        </div>
+        <span id="meterHint" class="meter-hint">録音スタートを押すとマイクが有効になります</span>
+      </div>
+
+      <!-- 保存 -->
+      <div class="save-row">
+        <label class="save-label" for="saveSelect">保存する音声</label>
+        <select id="saveSelect" class="save-select">
+          <option value="normal">普通の声</option>
+          <option value="reverse" selected>逆再生</option>
+          <option value="voice">変な声で逆再生（今のモード）</option>
+        </select>
+        <button id="saveBtn" class="big-btn btn-save" type="button" disabled>
+          <span aria-hidden="true">⬇</span> 音声を保存
+        </button>
+      </div>
+    </section>
+
+    <!-- 右カラム：ボイスモード＋お題 -->
+    <div class="side-col">
+      <!-- ボイスチェンジャー -->
+      <section class="panel" aria-labelledby="voiceTitle">
+        <h2 id="voiceTitle" class="panel-title">
+          <span aria-hidden="true">🎛</span> ボイスチェンジャー
+          <button id="randomModeBtn" class="dice-btn" type="button" title="ボイスモードをランダムに選ぶ">
+            🎲 おまかせ
+          </button>
+        </h2>
+        <div class="mode-grid" id="modeGrid"><!-- JSでモードボタンを生成 --></div>
+
+        <div class="speed-row">
+          <label class="speed-label" for="speedSlider">スピード（ピッチも一緒に変わる）</label>
+          <div class="speed-controls">
+            <input type="range" id="speedSlider" min="0.5" max="2" step="0.05" value="1" />
+            <span id="speedValue" class="speed-value">x1.00</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- サンプルテキスト -->
+      <section class="panel odai-panel" aria-labelledby="odaiTitle">
+        <h2 id="odaiTitle" class="panel-title"><span aria-hidden="true">📢</span> 今日のお題</h2>
+        <p id="bigSample" class="big-sample">「私は今日、伝説のプリンを食べました」</p>
+        <button id="randomSampleBtn" class="big-btn btn-odai" type="button">
+          🎲 お題をランダム
+        </button>
+        <div class="sample-grid" id="sampleGrid"><!-- JSでお題カードを生成 --></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ===== 注意書き ===== -->
+  <footer class="notes">
+    <ul>
+      <li><span aria-hidden="true">🔒</span> 音声はすべて端末の中だけで処理されます。外部には送信されません。</li>
+      <li><span aria-hidden="true">🎙</span> はじめて使うとき、ブラウザのマイク許可が必要です。</li>
+      <li><span aria-hidden="true">📺</span> 配信に音を乗せる場合は、OBS側でブラウザの音声（アプリケーション音声キャプチャ）またはデスクトップ音声を設定してください。</li>
+    </ul>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

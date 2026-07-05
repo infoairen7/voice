@@ -14,7 +14,644 @@
     rel="stylesheet"
   />
 
-  <link rel="stylesheet" href="style.css" />
+  <style>
+/* =====================================================
+   逆再生ボイススタジオ / Reverse Voice Party
+   ダーク × ネオン × ちょっとサブカルなスタイル
+   ===================================================== */
+
+:root {
+  /* カラーパレット */
+  --bg-0: #0a0514;        /* ほぼ黒の紫 */
+  --bg-1: #170a2e;        /* 濃い紫 */
+  --panel: rgba(30, 16, 58, 0.72);
+  --panel-border: rgba(155, 92, 255, 0.35);
+  --cyan: #35e6ff;
+  --pink: #ff4fd8;
+  --purple: #9b5cff;
+  --yellow: #f5ff3d;      /* ネオンイエロー */
+  --red: #ff3860;         /* 録音中 */
+  --text: #f2ecff;
+  --text-muted: #a695c9;
+
+  /* フォント */
+  --font-display: "Mochiy Pop One", "M PLUS Rounded 1c", system-ui, sans-serif;
+  --font-body: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  --font-pixel: "DotGothic16", monospace;
+
+  --radius: 18px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  font-family: var(--font-body);
+  color: var(--text);
+  background:
+    radial-gradient(1000px 600px at 85% -10%, rgba(155, 92, 255, 0.28), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(53, 230, 255, 0.16), transparent 60%),
+    linear-gradient(160deg, var(--bg-1), var(--bg-0) 70%);
+  background-attachment: fixed;
+  padding: 20px clamp(12px, 3vw, 40px) 32px;
+  overflow-x: hidden;
+}
+
+/* ---------- 背景のネオンブロブ ---------- */
+.bg-deco { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.blob {
+  position: absolute;
+  width: 360px; height: 360px;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.35;
+  animation: drift 22s ease-in-out infinite alternate;
+}
+.blob-1 { background: var(--purple); top: -120px; left: 8%; }
+.blob-2 { background: var(--pink);   bottom: -140px; right: 5%; animation-delay: -7s; }
+.blob-3 { background: var(--cyan);   top: 40%; left: 60%; width: 260px; height: 260px; animation-delay: -14s; }
+
+@keyframes drift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(50px, -40px) scale(1.15); }
+}
+
+/* =====================================================
+   ヘッダー
+   ===================================================== */
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  max-width: 1200px;
+  margin: 0 auto 18px;
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.7rem, 4vw, 2.6rem);
+  margin: 0;
+  letter-spacing: 0.04em;
+  color: var(--cyan);
+  text-shadow:
+    0 0 8px rgba(53, 230, 255, 0.9),
+    0 0 30px rgba(53, 230, 255, 0.45);
+}
+.logo-accent {
+  color: var(--pink);
+  text-shadow:
+    0 0 8px rgba(255, 79, 216, 0.9),
+    0 0 30px rgba(255, 79, 216, 0.45);
+}
+.logo-sub {
+  margin: 2px 0 0;
+  font-family: var(--font-pixel);
+  font-size: 0.8rem;
+  letter-spacing: 0.35em;
+  color: var(--yellow);
+  text-shadow: 0 0 10px rgba(245, 255, 61, 0.6);
+}
+.tagline {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.header-right { display: flex; align-items: center; gap: 10px; }
+
+/* 状態チップ（待機中/録音中/再生中…） */
+.status-chip {
+  font-family: var(--font-pixel);
+  font-size: 0.95rem;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: rgba(10, 5, 20, 0.6);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.status-chip.is-idle      { color: var(--text-muted); }
+.status-chip.is-countdown { color: var(--yellow); border-color: var(--yellow); box-shadow: 0 0 14px rgba(245, 255, 61, 0.4); }
+.status-chip.is-recording {
+  color: #fff;
+  background: var(--red);
+  border-color: var(--red);
+  box-shadow: 0 0 18px rgba(255, 56, 96, 0.8);
+  animation: chip-pulse 1s ease-in-out infinite;
+}
+.status-chip.is-playing   { color: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 14px rgba(53, 230, 255, 0.45); }
+.status-chip.is-reversing { color: var(--pink); border-color: var(--pink); box-shadow: 0 0 14px rgba(255, 79, 216, 0.5); }
+
+@keyframes chip-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.65; }
+}
+
+.ghost-btn {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.ghost-btn:hover,
+.ghost-btn[aria-pressed="true"] {
+  color: var(--yellow);
+  border-color: var(--yellow);
+  box-shadow: 0 0 10px rgba(245, 255, 61, 0.35);
+}
+
+/* =====================================================
+   エラーバー
+   ===================================================== */
+.error-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 1200px;
+  margin: 0 auto 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--red);
+  background: rgba(255, 56, 96, 0.12);
+  color: #ffd7e0;
+  box-shadow: 0 0 18px rgba(255, 56, 96, 0.25);
+}
+.error-icon { color: var(--red); font-size: 1.2rem; }
+.error-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #ffd7e0;
+  font-size: 1.3rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+}
+.error-close:hover { color: #fff; }
+
+/* =====================================================
+   レイアウト
+   ===================================================== */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 18px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.side-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 18px 20px 20px;
+  backdrop-filter: blur(6px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 10px 40px rgba(0, 0, 0, 0.45);
+  min-width: 0;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+/* =====================================================
+   録音デッキ
+   ===================================================== */
+.rec-area {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* 録音ボタンを囲むリング */
+.rec-ring {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.rec-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--cyan), var(--purple), var(--pink), var(--yellow), var(--cyan));
+  opacity: 0.85;
+}
+.rec-ring::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--bg-0);
+}
+/* 録音中はリングが回って赤く光る */
+.rec-ring.is-recording::before {
+  animation: ring-spin 1.4s linear infinite;
+  filter: drop-shadow(0 0 14px rgba(255, 56, 96, 0.8));
+}
+@keyframes ring-spin { to { transform: rotate(360deg); } }
+
+.rec-btn {
+  position: relative;
+  z-index: 1;
+  width: 122px;
+  height: 122px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1.35;
+  color: #fff;
+  background: radial-gradient(circle at 32% 28%, #ff7396, var(--red) 62%, #b6123c);
+  box-shadow: 0 0 22px rgba(255, 56, 96, 0.55);
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
+}
+.rec-btn:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 0 32px rgba(255, 56, 96, 0.85); }
+.rec-btn:active:not(:disabled) { transform: scale(0.96); }
+.rec-btn:disabled { cursor: not-allowed; filter: grayscale(0.6) brightness(0.6); box-shadow: none; }
+
+.rec-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px #fff;
+}
+.rec-ring.is-recording .rec-dot { animation: chip-pulse 0.8s ease-in-out infinite; }
+
+/* カウントダウンの数字 */
+.countdown {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(10, 5, 20, 0.85);
+  font-family: var(--font-pixel);
+  font-size: 4rem;
+  color: var(--yellow);
+  text-shadow: 0 0 20px rgba(245, 255, 61, 0.8);
+}
+
+.rec-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 200px;
+  flex: 1;
+}
+
+.timer {
+  font-family: var(--font-pixel);
+  font-size: 2.2rem;
+  color: var(--cyan);
+  text-shadow: 0 0 12px rgba(53, 230, 255, 0.6);
+  letter-spacing: 0.06em;
+}
+.timer.is-recording { color: var(--red); text-shadow: 0 0 12px rgba(255, 56, 96, 0.7); }
+.timer-max { font-size: 1.1rem; color: var(--text-muted); text-shadow: none; }
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-label input { accent-color: var(--pink); width: 16px; height: 16px; cursor: pointer; }
+
+/* ---------- 大きいボタン共通 ---------- */
+.big-btn {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 14px 18px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  color: #0a0514;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  white-space: nowrap;
+}
+.big-btn:hover:not(:disabled) { transform: translateY(-2px); }
+.big-btn:active:not(:disabled) { transform: translateY(0) scale(0.97); }
+.big-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.7) brightness(0.55);
+  box-shadow: none;
+}
+
+.btn-stop {
+  background: transparent;
+  color: var(--red);
+  border-color: var(--red);
+}
+.btn-stop:hover:not(:disabled) { box-shadow: 0 0 16px rgba(255, 56, 96, 0.5); }
+
+.btn-play    { background: var(--cyan);   box-shadow: 0 0 16px rgba(53, 230, 255, 0.35); }
+.btn-reverse { background: var(--pink);   box-shadow: 0 0 16px rgba(255, 79, 216, 0.35); }
+.btn-voice   { background: var(--purple); color: #fff; box-shadow: 0 0 16px rgba(155, 92, 255, 0.45); }
+.btn-retake  { background: transparent;   color: var(--text-muted); border-color: var(--panel-border); }
+.btn-retake:hover:not(:disabled) { color: var(--yellow); border-color: var(--yellow); box-shadow: 0 0 12px rgba(245, 255, 61, 0.3); }
+.btn-save    { background: var(--yellow); box-shadow: 0 0 16px rgba(245, 255, 61, 0.3); }
+.btn-odai    { background: var(--yellow); box-shadow: 0 0 16px rgba(245, 255, 61, 0.3); width: 100%; }
+
+/* 再生中のボタンは光らせて「押すと止まる」ことを伝える */
+.big-btn.is-active {
+  animation: chip-pulse 1s ease-in-out infinite;
+  box-shadow: 0 0 26px rgba(245, 255, 61, 0.6);
+  border-color: var(--yellow);
+}
+
+.play-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* ---------- ビジュアライザー ---------- */
+.visualizer {
+  width: 100%;
+  height: 140px;
+  display: block;
+  border-radius: 12px;
+  background: rgba(10, 5, 20, 0.65);
+  border: 1px solid var(--panel-border);
+  margin-bottom: 14px;
+}
+
+/* ---------- 音量メーター ---------- */
+.meter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.meter-label {
+  font-family: var(--font-pixel);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  flex: none;
+}
+.meter {
+  flex: 1;
+  min-width: 140px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(10, 5, 20, 0.8);
+  border: 1px solid var(--panel-border);
+  overflow: hidden;
+}
+.meter-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--cyan), var(--purple), var(--pink), var(--yellow));
+  box-shadow: 0 0 10px rgba(53, 230, 255, 0.6);
+  transition: width 0.06s linear;
+}
+.meter-hint { font-size: 0.78rem; color: var(--text-muted); }
+
+/* ---------- 保存 ---------- */
+.save-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-top: 1px dashed var(--panel-border);
+  padding-top: 14px;
+}
+.save-label { font-size: 0.85rem; color: var(--text-muted); }
+.save-select {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text);
+  background: rgba(10, 5, 20, 0.8);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+/* =====================================================
+   ボイスチェンジャー
+   ===================================================== */
+.dice-btn {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--yellow);
+  background: transparent;
+  border: 1px solid var(--yellow);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.12s;
+}
+.dice-btn:hover { box-shadow: 0 0 12px rgba(245, 255, 61, 0.45); transform: translateY(-1px); }
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mode-btn {
+  font-family: var(--font-body);
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid var(--panel-border);
+  background: rgba(10, 5, 20, 0.55);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.12s;
+}
+.mode-btn:hover { transform: translateY(-2px); border-color: var(--cyan); }
+.mode-btn.is-selected {
+  border-color: var(--pink);
+  box-shadow: 0 0 16px rgba(255, 79, 216, 0.45);
+  background: rgba(255, 79, 216, 0.1);
+}
+.mode-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin-bottom: 4px;
+}
+.mode-btn.is-selected .mode-name::before {
+  content: "●";
+  color: var(--yellow);
+  font-size: 0.6rem;
+  text-shadow: 0 0 8px rgba(245, 255, 61, 0.8);
+}
+.mode-desc { font-size: 0.76rem; color: var(--text-muted); line-height: 1.4; }
+
+.speed-row { border-top: 1px dashed var(--panel-border); padding-top: 12px; }
+.speed-label { font-size: 0.85rem; color: var(--text-muted); }
+.speed-controls { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.speed-controls input[type="range"] { flex: 1; accent-color: var(--cyan); cursor: pointer; }
+.speed-value {
+  font-family: var(--font-pixel);
+  color: var(--cyan);
+  min-width: 3.6em;
+  text-align: right;
+}
+
+/* =====================================================
+   お題（サンプルテキスト）
+   ===================================================== */
+.big-sample {
+  margin: 0 0 14px;
+  min-height: 3.2em;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  line-height: 1.6;
+  color: var(--yellow);
+  text-shadow: 0 0 14px rgba(245, 255, 61, 0.45);
+  padding: 16px 14px;
+  border: 2px dashed rgba(245, 255, 61, 0.5);
+  border-radius: 14px;
+  background: rgba(245, 255, 61, 0.04);
+}
+.big-sample.is-pop { animation: sample-pop 0.4s ease; }
+@keyframes sample-pop {
+  0%   { transform: scale(0.85); opacity: 0.2; }
+  60%  { transform: scale(1.06); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.sample-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+.sample-card {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  text-align: left;
+  color: var(--text);
+  background: rgba(10, 5, 20, 0.55);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  line-height: 1.5;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.12s;
+}
+.sample-card:hover { transform: translateY(-2px); border-color: var(--cyan); box-shadow: 0 0 12px rgba(53, 230, 255, 0.3); }
+.sample-card.is-current { border-color: var(--yellow); box-shadow: 0 0 12px rgba(245, 255, 61, 0.35); }
+
+/* =====================================================
+   注意書き
+   ===================================================== */
+.notes {
+  max-width: 1200px;
+  margin: 18px auto 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.notes ul { margin: 0; padding: 0 4px; list-style: none; display: grid; gap: 6px; }
+
+/* =====================================================
+   ミニモード（OBS等で小さく表示したい時）
+   ===================================================== */
+body.mini { padding: 10px 12px 14px; }
+body.mini .tagline,
+body.mini .logo-sub,
+body.mini .sample-grid,
+body.mini .mode-desc,
+body.mini .notes,
+body.mini .save-row,
+body.mini .meter-hint,
+body.mini .toggle-label { display: none; }
+body.mini .logo { font-size: 1.3rem; }
+body.mini .panel { padding: 12px 14px 14px; }
+body.mini .visualizer { height: 90px; }
+body.mini .rec-ring { width: 110px; height: 110px; }
+body.mini .rec-btn { width: 90px; height: 90px; font-size: 0.85rem; }
+body.mini .timer { font-size: 1.6rem; }
+body.mini .layout { gap: 12px; }
+
+/* =====================================================
+   レスポンシブ
+   ===================================================== */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .site-header { align-items: flex-start; flex-direction: column; }
+  .header-right { align-self: stretch; justify-content: space-between; }
+}
+
+@media (max-width: 480px) {
+  .rec-area { justify-content: center; text-align: center; }
+  .rec-side { align-items: center; }
+  .play-row { grid-template-columns: 1fr 1fr; }
+  .big-btn { font-size: 0.9rem; padding: 13px 10px; white-space: normal; }
+}
+
+/* キーボード操作でもどこにいるか分かるように */
+:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+/* 動きを減らす設定の人には派手なアニメを止める */
+@media (prefers-reduced-motion: reduce) {
+  .blob,
+  .rec-ring.is-recording::before,
+  .status-chip.is-recording,
+  .big-btn.is-active,
+  .rec-ring.is-recording .rec-dot { animation: none !important; }
+  .big-btn, .mode-btn, .sample-card, .rec-btn { transition: none; }
+}
+
+</style>
 </head>
 <body>
   <!-- 背景のネオン装飾（飾りだけなので読み上げ対象外） -->
@@ -160,6 +797,933 @@
     </ul>
   </footer>
 
-  <script src="script.js"></script>
+  <script>
+/* =====================================================
+   逆再生ボイススタジオ / Reverse Voice Party
+   -----------------------------------------------------
+   ・録音       : MediaRecorder API
+   ・逆再生     : AudioBuffer のチャンネルデータを reverse
+   ・ボイス変換 : Web Audio API のノードを組み合わせた簡易エフェクト
+   ・保存       : OfflineAudioContext でレンダリング → WAV 化
+   音声データはすべてブラウザ内だけで処理されます。
+   ===================================================== */
+"use strict";
+
+/* =====================================================
+   定数
+   ===================================================== */
+const MAX_RECORD_SEC = 15; // 録音の上限秒数
+
+// 録音前に読み上げるサンプルテキスト
+const SAMPLE_TEXTS = [
+  "私は今日、伝説のプリンを食べました",
+  "リスナーさん、今から魔法をかけます",
+  "お寿司が空を飛んでいます",
+  "バナナの神様、降臨してください",
+  "今日の配信、ここからが本番です",
+  "逆再生したら真実がわかるかもしれません",
+  "私は何も隠していません、たぶん",
+  "この声を聞いた者は、明日ちょっと元気になります",
+  "お布団から出たくない同盟、集合",
+  "冷蔵庫のプリンを食べた犯人は私です",
+];
+
+// ボイスモード定義
+// rate: 再生速度（ピッチも変わる） / tail: エコーの余韻ぶん保存時に足す秒数
+const VOICE_MODES = {
+  normal:   { name: "ノーマル逆再生",         desc: "まずはそのまま逆から",       rate: 1.0,  tail: 0.1 },
+  chipmunk: { name: "高い声・チップマンク風", desc: "早口でかわいい高音に",       rate: 1.6,  tail: 0.1 },
+  maou:     { name: "低い声・魔王風",         desc: "重低音で威圧感マックス",     rate: 0.6,  tail: 0.2 },
+  robot:    { name: "ロボット風",             desc: "ビリビリした機械の声",       rate: 1.0,  tail: 0.1 },
+  radio:    { name: "ラジオ風",               desc: "古いラジオから聞こえる声",   rate: 1.0,  tail: 0.1 },
+  echo:     { name: "エコー風",               desc: "やまびこみたいに響く",       rate: 1.0,  tail: 2.0 },
+  horror:   { name: "ホラー風",               desc: "ゾワッとする不気味さ",       rate: 0.78, tail: 2.5 },
+};
+
+/* =====================================================
+   状態
+   ===================================================== */
+let audioContext = null;     // AudioContext（ユーザー操作時に生成）
+let mediaStream = null;      // マイクのストリーム
+let mediaRecorder = null;    // MediaRecorder
+let recordedChunks = [];     // 録音中のデータ片
+
+let recordedBuffer = null;   // 録音した AudioBuffer（普通の向き）
+let reversedBuffer = null;   // 逆向きにした AudioBuffer
+
+let currentSource = null;    // 再生中の AudioBufferSourceNode
+let currentChain = null;     // 再生中のエフェクトチェーン
+let currentAction = null;    // "play" | "reverse" | "voice"
+
+let micAnalyser = null;      // マイク入力用アナライザー（音量メーター）
+let playAnalyser = null;     // 再生用アナライザー（ビジュアライザー）
+
+let state = "idle";          // idle | countdown | recording | playing
+let selectedMode = "normal"; // 選択中のボイスモード
+let recordStartTime = 0;
+let recordTimerId = null;
+
+/* =====================================================
+   DOM 取得
+   ===================================================== */
+const $ = (id) => document.getElementById(id);
+
+const recBtn = $("recBtn");
+const recRing = $("recRing");
+const stopBtn = $("stopBtn");
+const playBtn = $("playBtn");
+const reverseBtn = $("reverseBtn");
+const voiceReverseBtn = $("voiceReverseBtn");
+const retakeBtn = $("retakeBtn");
+const saveBtn = $("saveBtn");
+const saveSelect = $("saveSelect");
+const timerDisplay = $("timerDisplay");
+const countdownToggle = $("countdownToggle");
+const countdownOverlay = $("countdownOverlay");
+const statusChip = $("statusChip");
+const meterFill = $("meterFill");
+const meterHint = $("meterHint");
+const visualizer = $("visualizer");
+const vCtx = visualizer.getContext("2d");
+const modeGrid = $("modeGrid");
+const randomModeBtn = $("randomModeBtn");
+const speedSlider = $("speedSlider");
+const speedValue = $("speedValue");
+const bigSample = $("bigSample");
+const randomSampleBtn = $("randomSampleBtn");
+const sampleGrid = $("sampleGrid");
+const errorBar = $("errorBar");
+const errorText = $("errorText");
+const errorClose = $("errorClose");
+const miniModeBtn = $("miniModeBtn");
+
+/* =====================================================
+   対応チェック
+   ===================================================== */
+const isSupported =
+  !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) &&
+  typeof MediaRecorder !== "undefined" &&
+  !!(window.AudioContext || window.webkitAudioContext);
+
+/* =====================================================
+   エラー表示（やさしい日本語で）
+   ===================================================== */
+let errorTimerId = null;
+
+function showError(message, sticky = false) {
+  errorText.textContent = message;
+  errorBar.hidden = false;
+  clearTimeout(errorTimerId);
+  if (!sticky) {
+    errorTimerId = setTimeout(() => { errorBar.hidden = true; }, 8000);
+  }
+}
+
+errorClose.addEventListener("click", () => { errorBar.hidden = true; });
+
+/* =====================================================
+   AudioContext（スマホの自動再生制限対策：
+   ボタンを押した時に作成＆resumeする）
+   ===================================================== */
+async function ensureAudioContext() {
+  if (!audioContext) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    audioContext = new Ctx();
+    // 再生用アナライザーは1回だけ作って出力につないでおく
+    playAnalyser = audioContext.createAnalyser();
+    playAnalyser.fftSize = 256;
+    playAnalyser.connect(audioContext.destination);
+  }
+  if (audioContext.state === "suspended") {
+    try {
+      await audioContext.resume();
+    } catch (e) {
+      showError("音声の準備ができませんでした。もう一度ボタンを押してみてください。");
+    }
+  }
+  return audioContext;
+}
+
+/* =====================================================
+   マイクの用意
+   ===================================================== */
+async function getMicStream() {
+  if (mediaStream && mediaStream.active) return mediaStream;
+
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
+  } catch (err) {
+    if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) {
+      showError("マイクが使えませんでした。アドレスバーの近くにあるマイクのマークから「許可」を選んで、もう一度試してください。", true);
+    } else if (err && err.name === "NotFoundError") {
+      showError("マイクが見つかりませんでした。マイクがつながっているか確認してください。", true);
+    } else {
+      showError("マイクの準備に失敗しました。ページを読み込み直してから、もう一度試してください。");
+    }
+    throw err;
+  }
+
+  // 音量メーター用のアナライザーをマイクにつなぐ
+  const ctx = await ensureAudioContext();
+  const micSource = ctx.createMediaStreamSource(mediaStream);
+  micAnalyser = ctx.createAnalyser();
+  micAnalyser.fftSize = 256;
+  micSource.connect(micAnalyser); // 出力にはつながない（ハウリング防止）
+  meterHint.textContent = "マイクON（音は外部に送信されません）";
+
+  return mediaStream;
+}
+
+/* =====================================================
+   録音
+   ===================================================== */
+function pickMimeType() {
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
+  for (const type of candidates) {
+    if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return ""; // ブラウザおまかせ
+}
+
+async function startRecording() {
+  if (state !== "idle") return; // 連打防止
+
+  try {
+    await ensureAudioContext();
+    const stream = await getMicStream();
+
+    // カウントダウン（チェックが入っている時だけ）
+    if (countdownToggle.checked) {
+      setState("countdown");
+      await runCountdown(3);
+      // カウントダウン中に何かおかしくなっていたら中断
+      if (state !== "countdown") return;
+    }
+
+    recordedChunks = [];
+    const mimeType = pickMimeType();
+    mediaRecorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = handleRecordingStopped;
+
+    mediaRecorder.onerror = () => {
+      showError("録音中にエラーが起きました。もう一度録音してみてください。");
+      setState("idle");
+    };
+
+    mediaRecorder.start();
+    recordStartTime = performance.now();
+    setState("recording");
+
+    // タイマー表示 ＆ 上限で自動ストップ
+    recordTimerId = setInterval(() => {
+      const sec = (performance.now() - recordStartTime) / 1000;
+      updateTimerDisplay(sec);
+      if (sec >= MAX_RECORD_SEC) stopRecording();
+    }, 100);
+  } catch (e) {
+    setState("idle");
+  }
+}
+
+function stopRecording() {
+  if (state !== "recording" || !mediaRecorder) return;
+  clearInterval(recordTimerId);
+  try {
+    mediaRecorder.stop();
+  } catch (e) {
+    showError("録音の停止に失敗しました。ページを読み込み直してみてください。");
+    setState("idle");
+  }
+}
+
+// 録音が止まったら AudioBuffer に変換して、逆向きバージョンも作る
+async function handleRecordingStopped() {
+  try {
+    const blob = new Blob(recordedChunks, {
+      type: mediaRecorder.mimeType || "audio/webm",
+    });
+
+    if (blob.size === 0) {
+      showError("録音できていませんでした。もう少し長めに録音してみてください。");
+      setState("idle");
+      return;
+    }
+
+    const arrayBuffer = await blob.arrayBuffer();
+    const ctx = await ensureAudioContext();
+    recordedBuffer = await decodeAudio(ctx, arrayBuffer);
+    reversedBuffer = makeReversedBuffer(ctx, recordedBuffer);
+
+    updateTimerDisplay(recordedBuffer.duration);
+    setState("idle");
+  } catch (e) {
+    showError("録音データを読み込めませんでした。もう一度録音してみてください。");
+    recordedBuffer = null;
+    reversedBuffer = null;
+    setState("idle");
+  }
+}
+
+// decodeAudioData（古いSafariのコールバック形式にも対応）
+function decodeAudio(ctx, arrayBuffer) {
+  return new Promise((resolve, reject) => {
+    const maybePromise = ctx.decodeAudioData(arrayBuffer, resolve, reject);
+    if (maybePromise && typeof maybePromise.then === "function") {
+      maybePromise.then(resolve).catch(reject);
+    }
+  });
+}
+
+/* =====================================================
+   逆再生バッファ生成
+   （チャンネルデータをコピーして reverse するだけ！）
+   ===================================================== */
+function makeReversedBuffer(ctx, buffer) {
+  const reversed = ctx.createBuffer(
+    buffer.numberOfChannels,
+    buffer.length,
+    buffer.sampleRate
+  );
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const data = new Float32Array(buffer.getChannelData(ch)); // コピー
+    data.reverse();                                           // 逆順に
+    reversed.copyToChannel(data, ch);
+  }
+  return reversed;
+}
+
+/* =====================================================
+   エフェクトチェーン
+   AudioContext / OfflineAudioContext のどちらでも使える
+   ===================================================== */
+
+// 歪み用のカーブ（tanhでソフトクリップ）
+function makeDistortionCurve(amount) {
+  const samples = 256;
+  const curve = new Float32Array(samples);
+  for (let i = 0; i < samples; i++) {
+    const x = (i * 2) / samples - 1;
+    curve[i] = Math.tanh(amount * x);
+  }
+  return curve;
+}
+
+/**
+ * ボイスモードに応じたノードのつながりを作る
+ * @returns {{input: AudioNode, output: AudioNode, oscillators: OscillatorNode[]}}
+ */
+function buildEffectChain(ctx, modeKey) {
+  const input = ctx.createGain();
+  const output = ctx.createGain();
+  const oscillators = []; // 停止時に止めるため覚えておく
+
+  switch (modeKey) {
+    case "chipmunk": {
+      // 高さは playbackRate 側で処理。声のシャリ感を少し足す
+      const high = ctx.createBiquadFilter();
+      high.type = "highshelf";
+      high.frequency.value = 3000;
+      high.gain.value = 3;
+      input.connect(high).connect(output);
+      break;
+    }
+
+    case "maou": {
+      // 低さは playbackRate 側。低音を持ち上げて軽く歪ませる
+      const low = ctx.createBiquadFilter();
+      low.type = "lowshelf";
+      low.frequency.value = 220;
+      low.gain.value = 8;
+      const shaper = ctx.createWaveShaper();
+      shaper.curve = makeDistortionCurve(1.6);
+      input.connect(low).connect(shaper).connect(output);
+      break;
+    }
+
+    case "robot": {
+      // リングモジュレーション（信号 × サイン波）で機械声に
+      const ring = ctx.createGain();
+      ring.gain.value = 0; // ベース0にしてオシレーターで揺らす
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = 55;
+      osc.connect(ring.gain);
+      osc.start();
+      oscillators.push(osc);
+
+      const band = ctx.createBiquadFilter();
+      band.type = "bandpass";
+      band.frequency.value = 1200;
+      band.Q.value = 0.7;
+
+      const makeup = ctx.createGain();
+      makeup.gain.value = 1.8; // リングモジュレーションで下がる音量を補う
+
+      input.connect(ring).connect(band).connect(makeup).connect(output);
+      break;
+    }
+
+    case "radio": {
+      // 帯域を狭くして軽く歪ませると古いラジオっぽい
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 500;
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 2600;
+      const shaper = ctx.createWaveShaper();
+      shaper.curve = makeDistortionCurve(4);
+      const gain = ctx.createGain();
+      gain.gain.value = 1.2;
+      input.connect(hp).connect(lp).connect(shaper).connect(gain).connect(output);
+      break;
+    }
+
+    case "echo": {
+      // ディレイ＋フィードバックのシンプルなやまびこ
+      const delay = ctx.createDelay(1.0);
+      delay.delayTime.value = 0.28;
+      const feedback = ctx.createGain();
+      feedback.gain.value = 0.45;
+      const wet = ctx.createGain();
+      wet.gain.value = 0.6;
+
+      input.connect(output);                    // 元の音（ドライ）
+      input.connect(delay);
+      delay.connect(feedback).connect(delay);   // フィードバックループ
+      delay.connect(wet).connect(output);       // 響き（ウェット）
+      break;
+    }
+
+    case "horror": {
+      // 低め再生（rate側）＋トレモロの揺れ＋長めのエコー＋こもり
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 2200;
+
+      // トレモロ：ゲインをLFOで揺らす
+      const trem = ctx.createGain();
+      trem.gain.value = 0.75;
+      const lfo = ctx.createOscillator();
+      lfo.type = "sine";
+      lfo.frequency.value = 4.5;
+      const lfoDepth = ctx.createGain();
+      lfoDepth.gain.value = 0.25;
+      lfo.connect(lfoDepth).connect(trem.gain);
+      lfo.start();
+      oscillators.push(lfo);
+
+      const delay = ctx.createDelay(1.0);
+      delay.delayTime.value = 0.4;
+      const feedback = ctx.createGain();
+      feedback.gain.value = 0.5;
+      const wet = ctx.createGain();
+      wet.gain.value = 0.5;
+
+      input.connect(lp).connect(trem);
+      trem.connect(output);                     // ドライ
+      trem.connect(delay);
+      delay.connect(feedback).connect(delay);   // フィードバック
+      delay.connect(wet).connect(output);       // ウェット
+      break;
+    }
+
+    case "normal":
+    default: {
+      input.connect(output);
+      break;
+    }
+  }
+
+  return { input, output, oscillators };
+}
+
+/* =====================================================
+   再生 / 停止
+   ===================================================== */
+function userSpeed() {
+  return parseFloat(speedSlider.value) || 1.0;
+}
+
+/**
+ * @param {AudioBuffer} buffer   再生するバッファ
+ * @param {string} modeKey       ボイスモード
+ * @param {"play"|"reverse"|"voice"} action どのボタンから来たか
+ */
+async function playBuffer(buffer, modeKey, action) {
+  if (!buffer) {
+    showError("まだ録音がありません。先に「録音スタート」で声を録ってください。");
+    return;
+  }
+
+  // 同じボタンをもう一度押したら停止（トグル動作）
+  if (state === "playing" && currentAction === action) {
+    stopPlayback();
+    return;
+  }
+
+  stopPlayback(); // 別の再生中なら止めてから
+
+  try {
+    const ctx = await ensureAudioContext();
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    const mode = VOICE_MODES[modeKey] || VOICE_MODES.normal;
+    source.playbackRate.value = mode.rate * userSpeed();
+
+    const chain = buildEffectChain(ctx, modeKey);
+    source.connect(chain.input);
+    chain.output.connect(playAnalyser); // ビジュアライザー経由で出力へ
+
+    source.onended = () => {
+      // 途中停止でも最後まで再生でもここに来る
+      if (currentSource === source) {
+        cleanupPlayback();
+        setState("idle");
+      }
+    };
+
+    currentSource = source;
+    currentChain = chain;
+    currentAction = action;
+
+    source.start();
+    setState("playing");
+  } catch (e) {
+    cleanupPlayback();
+    setState("idle");
+    showError("再生に失敗しました。もう一度ボタンを押してみてください。");
+  }
+}
+
+function stopPlayback() {
+  if (currentSource) {
+    try { currentSource.stop(); } catch (e) { /* すでに停止済みならOK */ }
+  }
+}
+
+function cleanupPlayback() {
+  if (currentChain) {
+    try { currentChain.output.disconnect(); } catch (e) {}
+    currentChain.oscillators.forEach((osc) => {
+      try { osc.stop(); } catch (e) {}
+    });
+  }
+  currentSource = null;
+  currentChain = null;
+  currentAction = null;
+}
+
+/* =====================================================
+   録り直し
+   ===================================================== */
+function retake() {
+  if (state === "playing") stopPlayback();
+  recordedBuffer = null;
+  reversedBuffer = null;
+  updateTimerDisplay(0);
+  setState("idle");
+}
+
+/* =====================================================
+   保存（WAV）
+   OfflineAudioContext でエフェクトごとレンダリングする
+   ===================================================== */
+async function renderToBuffer(buffer, modeKey, speed) {
+  const mode = VOICE_MODES[modeKey] || VOICE_MODES.normal;
+  const rate = mode.rate * speed;
+  const durationSec = buffer.duration / rate + mode.tail;
+  const length = Math.max(1, Math.ceil(durationSec * buffer.sampleRate));
+
+  const offline = new OfflineAudioContext(
+    buffer.numberOfChannels,
+    length,
+    buffer.sampleRate
+  );
+
+  const source = offline.createBufferSource();
+  source.buffer = buffer;
+  source.playbackRate.value = rate;
+
+  const chain = buildEffectChain(offline, modeKey);
+  source.connect(chain.input);
+  chain.output.connect(offline.destination);
+
+  source.start();
+  return offline.startRendering();
+}
+
+// AudioBuffer → 16bit PCM の WAV Blob
+function bufferToWavBlob(buffer) {
+  const numCh = Math.min(2, buffer.numberOfChannels);
+  const sampleRate = buffer.sampleRate;
+  const dataSize = buffer.length * numCh * 2;
+  const arrayBuffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(arrayBuffer);
+
+  const writeString = (offset, str) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+
+  // WAVヘッダー
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);          // fmtチャンクサイズ
+  view.setUint16(20, 1, true);           // PCM
+  view.setUint16(22, numCh, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numCh * 2, true);
+  view.setUint16(32, numCh * 2, true);
+  view.setUint16(34, 16, true);          // 16bit
+  writeString(36, "data");
+  view.setUint32(40, dataSize, true);
+
+  // サンプル書き込み（インターリーブ）
+  const channels = [];
+  for (let ch = 0; ch < numCh; ch++) channels.push(buffer.getChannelData(ch));
+
+  let offset = 44;
+  for (let i = 0; i < buffer.length; i++) {
+    for (let ch = 0; ch < numCh; ch++) {
+      let s = Math.max(-1, Math.min(1, channels[ch][i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      offset += 2;
+    }
+  }
+
+  return new Blob([arrayBuffer], { type: "audio/wav" });
+}
+
+async function saveAudio() {
+  if (!recordedBuffer) {
+    showError("まだ録音がありません。先に声を録ってから保存してください。");
+    return;
+  }
+
+  try {
+    saveBtn.disabled = true;
+    const kind = saveSelect.value;
+    let outBuffer;
+    let label;
+
+    if (kind === "normal") {
+      outBuffer = recordedBuffer;
+      label = "normal";
+    } else if (kind === "reverse") {
+      outBuffer = reversedBuffer;
+      label = "reverse";
+    } else {
+      // 変な声で逆再生：今のモード＆スピードを焼き込んで書き出す
+      outBuffer = await renderToBuffer(reversedBuffer, selectedMode, userSpeed());
+      label = `reverse-${selectedMode}`;
+    }
+
+    const blob = bufferToWavBlob(outBuffer);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    a.href = url;
+    a.download = `reverse-voice_${label}_${stamp}.wav`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) {
+    showError("保存に失敗しました。もう一度試してみてください。");
+  } finally {
+    updateUI();
+  }
+}
+
+/* =====================================================
+   カウントダウン（音は鳴らさず表示だけ）
+   ===================================================== */
+function runCountdown(from) {
+  return new Promise((resolve) => {
+    let n = from;
+    countdownOverlay.hidden = false;
+    countdownOverlay.textContent = n;
+    const id = setInterval(() => {
+      n -= 1;
+      if (n <= 0) {
+        clearInterval(id);
+        countdownOverlay.hidden = true;
+        resolve();
+      } else {
+        countdownOverlay.textContent = n;
+      }
+    }, 800);
+  });
+}
+
+/* =====================================================
+   状態管理と UI 更新
+   ===================================================== */
+const STATUS_LABELS = {
+  idle: "待機中",
+  countdown: "カウントダウン",
+  recording: "録音中 ●REC",
+  playing: "再生中",
+  reversing: "逆再生中",
+};
+
+function setState(next) {
+  state = next;
+  updateUI();
+}
+
+function updateUI() {
+  const hasRecording = !!recordedBuffer;
+  const busy = state !== "idle";
+
+  // 状態チップ
+  let statusKey = state;
+  if (state === "playing") {
+    statusKey = currentAction === "play" ? "playing" : "reversing";
+  }
+  statusChip.textContent = STATUS_LABELS[statusKey] || STATUS_LABELS.idle;
+  statusChip.className = "status-chip is-" + statusKey;
+
+  // 録音まわり
+  recBtn.disabled = !isSupported || busy;
+  stopBtn.disabled = state !== "recording";
+  recRing.classList.toggle("is-recording", state === "recording");
+  timerDisplay.classList.toggle("is-recording", state === "recording");
+
+  // 再生系：録音がない時は無効。再生中は「今鳴っているボタン」だけ押せる（＝停止できる）
+  const canPlay = hasRecording && isSupported;
+  playBtn.disabled = !canPlay || (busy && !(state === "playing" && currentAction === "play"));
+  reverseBtn.disabled = !canPlay || (busy && !(state === "playing" && currentAction === "reverse"));
+  voiceReverseBtn.disabled = !canPlay || (busy && !(state === "playing" && currentAction === "voice"));
+
+  playBtn.classList.toggle("is-active", state === "playing" && currentAction === "play");
+  reverseBtn.classList.toggle("is-active", state === "playing" && currentAction === "reverse");
+  voiceReverseBtn.classList.toggle("is-active", state === "playing" && currentAction === "voice");
+
+  retakeBtn.disabled = !hasRecording || state === "recording" || state === "countdown";
+  saveBtn.disabled = !canPlay || busy;
+}
+
+function updateTimerDisplay(sec) {
+  const shown = Math.min(sec, MAX_RECORD_SEC);
+  const m = Math.floor(shown / 60);
+  const s = Math.floor(shown % 60).toString().padStart(2, "0");
+  timerDisplay.innerHTML =
+    `${m}:${s} <span class="timer-max">/ 0:${MAX_RECORD_SEC}</span>`;
+}
+
+/* =====================================================
+   音量メーター ＆ ビジュアライザー（1つのループで描画）
+   ===================================================== */
+const meterData = new Uint8Array(128);
+const vizData = new Uint8Array(128);
+
+function drawLoop() {
+  requestAnimationFrame(drawLoop);
+
+  // ---- 音量メーター（マイク入力のRMS）----
+  if (micAnalyser) {
+    micAnalyser.getByteTimeDomainData(meterData);
+    let sum = 0;
+    for (let i = 0; i < meterData.length; i++) {
+      const v = (meterData[i] - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / meterData.length);
+    const percent = Math.min(100, rms * 260); // 見やすいように増幅
+    meterFill.style.width = percent.toFixed(1) + "%";
+  }
+
+  // ---- ビジュアライザー ----
+  const w = visualizer.width;
+  const h = visualizer.height;
+  vCtx.clearRect(0, 0, w, h);
+
+  let analyser = null;
+  if (state === "recording" && micAnalyser) analyser = micAnalyser;
+  else if (state === "playing" && playAnalyser) analyser = playAnalyser;
+
+  if (analyser) {
+    analyser.getByteFrequencyData(vizData);
+    const barCount = 48;
+    const step = Math.floor(vizData.length / barCount);
+    const barWidth = w / barCount;
+
+    for (let i = 0; i < barCount; i++) {
+      const value = vizData[i * step] / 255;
+      const barHeight = Math.max(3, value * (h - 12));
+      const x = i * barWidth;
+      const y = h - barHeight - 4;
+
+      // 録音中は赤、再生中はシアン→ピンクのグラデーション
+      if (state === "recording") {
+        vCtx.fillStyle = `rgba(255, 56, 96, ${0.5 + value * 0.5})`;
+      } else {
+        const grad = vCtx.createLinearGradient(0, h, 0, 0);
+        grad.addColorStop(0, "#35e6ff");
+        grad.addColorStop(0.6, "#ff4fd8");
+        grad.addColorStop(1, "#f5ff3d");
+        vCtx.fillStyle = grad;
+        vCtx.globalAlpha = 0.4 + value * 0.6;
+      }
+      vCtx.fillRect(x + 2, y, barWidth - 4, barHeight);
+      vCtx.globalAlpha = 1;
+    }
+  } else {
+    // 待機中：うすい基準線だけ
+    vCtx.fillStyle = "rgba(155, 92, 255, 0.35)";
+    vCtx.fillRect(0, h / 2 - 1, w, 2);
+  }
+}
+
+// canvasの実サイズを表示サイズに合わせる（にじみ防止）
+function fitCanvas() {
+  const rect = visualizer.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  visualizer.width = Math.max(1, Math.round(rect.width * dpr));
+  visualizer.height = Math.max(1, Math.round(rect.height * dpr));
+}
+window.addEventListener("resize", fitCanvas);
+
+/* =====================================================
+   ボイスモード UI 生成
+   ===================================================== */
+function buildModeGrid() {
+  Object.entries(VOICE_MODES).forEach(([key, mode]) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mode-btn";
+    btn.dataset.mode = key;
+    btn.setAttribute("aria-pressed", String(key === selectedMode));
+    btn.innerHTML =
+      `<span class="mode-name">${mode.name}</span>` +
+      `<span class="mode-desc">${mode.desc}</span>`;
+    btn.addEventListener("click", () => selectMode(key));
+    modeGrid.appendChild(btn);
+  });
+  refreshModeGrid();
+}
+
+function selectMode(key) {
+  selectedMode = key;
+  refreshModeGrid();
+}
+
+function refreshModeGrid() {
+  modeGrid.querySelectorAll(".mode-btn").forEach((btn) => {
+    const on = btn.dataset.mode === selectedMode;
+    btn.classList.toggle("is-selected", on);
+    btn.setAttribute("aria-pressed", String(on));
+  });
+}
+
+// 🎲 おまかせ：今と違うモードをランダムに選ぶ
+randomModeBtn.addEventListener("click", () => {
+  const keys = Object.keys(VOICE_MODES).filter((k) => k !== selectedMode);
+  selectMode(keys[Math.floor(Math.random() * keys.length)]);
+});
+
+/* =====================================================
+   サンプルテキスト（お題）
+   ===================================================== */
+let currentSampleIndex = 0;
+
+function buildSampleGrid() {
+  SAMPLE_TEXTS.forEach((text, i) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "sample-card";
+    card.textContent = "「" + text + "」";
+    card.addEventListener("click", () => setSample(i));
+    sampleGrid.appendChild(card);
+  });
+  setSample(0, false);
+}
+
+function setSample(index, pop = true) {
+  currentSampleIndex = index;
+  bigSample.textContent = "「" + SAMPLE_TEXTS[index] + "」";
+
+  sampleGrid.querySelectorAll(".sample-card").forEach((card, i) => {
+    card.classList.toggle("is-current", i === index);
+  });
+
+  if (pop) {
+    bigSample.classList.remove("is-pop");
+    // reflowを挟んでアニメーションをリスタート
+    void bigSample.offsetWidth;
+    bigSample.classList.add("is-pop");
+  }
+}
+
+randomSampleBtn.addEventListener("click", () => {
+  let next = currentSampleIndex;
+  while (next === currentSampleIndex && SAMPLE_TEXTS.length > 1) {
+    next = Math.floor(Math.random() * SAMPLE_TEXTS.length);
+  }
+  setSample(next);
+});
+
+/* =====================================================
+   ミニモード
+   ===================================================== */
+miniModeBtn.addEventListener("click", () => {
+  const mini = document.body.classList.toggle("mini");
+  miniModeBtn.setAttribute("aria-pressed", String(mini));
+  miniModeBtn.textContent = mini ? "通常モード" : "ミニモード";
+  fitCanvas();
+});
+
+/* =====================================================
+   イベント登録
+   ===================================================== */
+recBtn.addEventListener("click", startRecording);
+stopBtn.addEventListener("click", stopRecording);
+playBtn.addEventListener("click", () => playBuffer(recordedBuffer, "normal", "play"));
+reverseBtn.addEventListener("click", () => playBuffer(reversedBuffer, "normal", "reverse"));
+voiceReverseBtn.addEventListener("click", () => playBuffer(reversedBuffer, selectedMode, "voice"));
+retakeBtn.addEventListener("click", retake);
+saveBtn.addEventListener("click", saveAudio);
+
+speedSlider.addEventListener("input", () => {
+  speedValue.textContent = "x" + userSpeed().toFixed(2);
+});
+
+/* =====================================================
+   初期化
+   ===================================================== */
+function init() {
+  buildModeGrid();
+  buildSampleGrid();
+  fitCanvas();
+  drawLoop();
+  updateUI();
+
+  if (!isSupported) {
+    showError("お使いのブラウザは録音機能に対応していないようです。最新のChrome・Edge・Safariなどで開いてみてください。", true);
+  }
+}
+
+init();
+
+</script>
 </body>
 </html>

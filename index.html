@@ -651,6 +651,84 @@ body.mini .layout { gap: 12px; }
   .big-btn, .mode-btn, .sample-card, .rec-btn { transition: none; }
 }
 
+/* =====================================================
+   マイク許可ガイド（環境別ヘルプ）
+   ===================================================== */
+.mic-help-open { align-self: flex-start; }
+.mic-help-open.attention {
+  color: var(--yellow);
+  border-color: var(--yellow);
+  box-shadow: 0 0 12px rgba(245, 255, 61, 0.4);
+  animation: chip-pulse 1.2s ease-in-out infinite;
+}
+
+.mic-help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(5, 2, 12, 0.72);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.mic-help-overlay[hidden] { display: none; }
+
+.mic-help-panel {
+  max-width: 560px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: auto;
+  background: var(--bg-1);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.6);
+}
+
+.mic-help-head { display: flex; align-items: center; }
+.mic-help-head h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.1rem;
+  margin: 0;
+}
+.mic-help-head .error-close { color: var(--text-muted); }
+
+.mic-help-note {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+
+.mic-help-body details {
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  background: rgba(10, 5, 20, 0.5);
+}
+.mic-help-body details[open] { border-color: var(--cyan); }
+.mic-help-body summary { cursor: pointer; font-weight: 700; font-size: 0.9rem; }
+.mic-help-body ol {
+  margin: 10px 0 4px;
+  padding-left: 20px;
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.mic-help-body li { margin-bottom: 4px; }
+
+.mic-help-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mic-help-open.attention { animation: none !important; }
+}
+
 </style>
 </head>
 <body>
@@ -710,6 +788,9 @@ body.mini .layout { gap: 12px; }
             <input type="checkbox" id="countdownToggle" />
             3秒カウントダウンしてから録音
           </label>
+          <button id="micHelpOpen" class="ghost-btn mic-help-open" type="button">
+            🎤 マイクが使えない時は
+          </button>
         </div>
       </div>
 
@@ -787,6 +868,25 @@ body.mini .layout { gap: 12px; }
       </section>
     </div>
   </main>
+
+  <!-- ===== マイク許可ガイド（環境別） ===== -->
+  <div id="micHelp" class="mic-help-overlay" hidden>
+    <div class="mic-help-panel" role="dialog" aria-modal="true" aria-labelledby="micHelpTitle">
+      <div class="mic-help-head">
+        <h2 id="micHelpTitle">🎤 マイクを許可する方法</h2>
+        <button id="micHelpClose" class="error-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <p class="mic-help-note">
+        安全のため、マイクの許可はブラウザの設定からしか変えられない仕組みになっています。
+        お使いの環境の手順で「許可」に変えてから、下の「もう一度試す」を押してください。
+      </p>
+      <div id="micHelpBody" class="mic-help-body"><!-- JSで環境別の手順を生成 --></div>
+      <div class="mic-help-actions">
+        <button id="micRetryBtn" class="big-btn btn-play" type="button">🎙 もう一度試す</button>
+        <button id="micReloadBtn" class="big-btn btn-retake" type="button">↻ ページを再読み込み</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ===== 注意書き ===== -->
   <footer class="notes">
@@ -896,6 +996,12 @@ const errorBar = $("errorBar");
 const errorText = $("errorText");
 const errorClose = $("errorClose");
 const miniModeBtn = $("miniModeBtn");
+const micHelp = $("micHelp");
+const micHelpBody = $("micHelpBody");
+const micHelpOpen = $("micHelpOpen");
+const micHelpClose = $("micHelpClose");
+const micRetryBtn = $("micRetryBtn");
+const micReloadBtn = $("micReloadBtn");
 
 /* =====================================================
    対応チェック
@@ -956,7 +1062,8 @@ async function getMicStream() {
     });
   } catch (err) {
     if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) {
-      showError("マイクが使えませんでした。アドレスバーの近くにあるマイクのマークから「許可」を選んで、もう一度試してください。", true);
+      showError("マイクが使えませんでした。ガイドの手順で「許可」に変更してから、もう一度試してください。", true);
+      openMicHelp(); // 環境別の直し方ガイドを自動表示
     } else if (err && err.name === "NotFoundError") {
       showError("マイクが見つかりませんでした。マイクがつながっているか確認してください。", true);
     } else {
@@ -1693,6 +1800,163 @@ miniModeBtn.addEventListener("click", () => {
 });
 
 /* =====================================================
+   マイク許可ガイド（デバイス・ブラウザ別）
+   ※Webページからブラウザの設定画面を直接開くことは
+   　セキュリティ上できないため、環境を自動判定して
+   　その環境に合った手順を案内する方式にしている
+   ===================================================== */
+const MIC_GUIDES = [
+  {
+    key: "ios",
+    label: "iPhone / iPad（Safari）",
+    steps: [
+      "アドレスバー左の「ぁあ」（またはページ設定アイコン）をタップ",
+      "「Webサイトの設定」→「マイク」を「許可」に変更",
+      "項目が見つからない時は、ホーム画面の「設定」アプリ →「アプリ」→「Safari」→「マイク」を「確認」または「許可」に",
+      "このページを再読み込みして「録音スタート」をもう一度押す",
+    ],
+  },
+  {
+    key: "android",
+    label: "Android（Chrome）",
+    steps: [
+      "アドレスバー左の鍵（または設定）アイコンをタップ",
+      "「権限」→「マイク」を「許可」に変更",
+      "項目が無い時は、Androidの「設定」→「アプリ」→「Chrome」→「権限」→「マイク」を許可",
+      "このページを再読み込みして「録音スタート」をもう一度押す",
+    ],
+  },
+  {
+    key: "chrome",
+    label: "パソコンのChrome / Edge",
+    steps: [
+      "アドレスバー左の鍵（または調整つまみ）アイコンをクリック",
+      "「マイク」のスイッチをオンにする（無い場合は「サイトの設定」→「マイク」→「許可」）",
+      "このページを再読み込みして「録音スタート」をもう一度押す",
+    ],
+  },
+  {
+    key: "safari",
+    label: "MacのSafari",
+    steps: [
+      "メニューバーの「Safari」→「設定」→「Webサイト」タブ →「マイク」",
+      "このサイトを「許可」に変更",
+      "このページを再読み込みして「録音スタート」をもう一度押す",
+    ],
+  },
+  {
+    key: "firefox",
+    label: "Firefox",
+    steps: [
+      "アドレスバー左の斜線付きマイクアイコンをクリック",
+      "「ブロック中」の右にある「×」を押して解除",
+      "このページを再読み込みして「録音スタート」をもう一度押す",
+    ],
+  },
+  {
+    key: "os",
+    label: "それでもダメな時（パソコン本体の設定）",
+    steps: [
+      "Windows：「設定」→「プライバシーとセキュリティ」→「マイク」→ マイクへのアクセスをオンにして、ブラウザもオンに",
+      "Mac：「システム設定」→「プライバシーとセキュリティ」→「マイク」→ ブラウザにチェック",
+      "OSのサウンド設定で、使いたいマイクが「入力デバイス」に選ばれているかも確認",
+    ],
+  },
+];
+
+// ユーザーエージェントからざっくり環境を判定
+function detectEnvKey() {
+  const ua = navigator.userAgent;
+  // iPadOSはMac扱いになることがあるためタッチ点数でも判定
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
+  if (/Android/.test(ua)) return "android";
+  if (/Firefox\//.test(ua)) return "firefox";
+  if (/Edg\//.test(ua)) return "chrome";   // EdgeはChromeと同じ手順
+  if (/Chrome\//.test(ua)) return "chrome";
+  if (/Safari\//.test(ua)) return "safari";
+  return "chrome";
+}
+
+// 判定した環境の手順を先頭＆開いた状態で表示する
+function buildMicHelp() {
+  const detected = detectEnvKey();
+  const ordered = [...MIC_GUIDES].sort((a, b) =>
+    a.key === detected ? -1 : b.key === detected ? 1 : 0
+  );
+
+  micHelpBody.innerHTML = "";
+  ordered.forEach((guide) => {
+    const details = document.createElement("details");
+    if (guide.key === detected) details.open = true;
+
+    const summary = document.createElement("summary");
+    summary.textContent =
+      (guide.key === detected ? "★ " : "") +
+      guide.label +
+      (guide.key === detected ? "（お使いの環境）" : "");
+    details.appendChild(summary);
+
+    const ol = document.createElement("ol");
+    guide.steps.forEach((step) => {
+      const li = document.createElement("li");
+      li.textContent = step;
+      ol.appendChild(li);
+    });
+    details.appendChild(ol);
+    micHelpBody.appendChild(details);
+  });
+}
+
+function openMicHelp() {
+  buildMicHelp();
+  micHelp.hidden = false;
+}
+
+function closeMicHelp() {
+  micHelp.hidden = true;
+}
+
+micHelpOpen.addEventListener("click", openMicHelp);
+micHelpClose.addEventListener("click", closeMicHelp);
+micHelp.addEventListener("click", (e) => {
+  if (e.target === micHelp) closeMicHelp(); // 背景クリックで閉じる
+});
+micReloadBtn.addEventListener("click", () => location.reload());
+
+// 設定を直したあと、その場で再チャレンジできるボタン
+micRetryBtn.addEventListener("click", async () => {
+  try {
+    await ensureAudioContext();
+    await getMicStream();
+    closeMicHelp();
+    errorBar.hidden = true;
+    showError("マイクが使えるようになりました！「録音スタート」を押してください。");
+  } catch (e) {
+    // 失敗時は getMicStream 側でエラー表示＆ガイド再表示される
+  }
+});
+
+// ページを開いた時点でブロック済みなら、先回りして知らせる
+async function checkMicPermission() {
+  try {
+    if (!navigator.permissions || !navigator.permissions.query) return;
+    const status = await navigator.permissions.query({ name: "microphone" });
+    const react = () => {
+      if (status.state === "denied") {
+        showError("マイクがブロックされています。「🎤 マイクが使えない時は」から直し方を確認してください。", true);
+        micHelpOpen.classList.add("attention");
+      } else {
+        micHelpOpen.classList.remove("attention");
+      }
+    };
+    status.onchange = react;
+    react();
+  } catch (e) {
+    // Safariなど未対応ブラウザでは何もしない（実際の失敗時にガイドが出る）
+  }
+}
+
+/* =====================================================
    イベント登録
    ===================================================== */
 recBtn.addEventListener("click", startRecording);
@@ -1716,6 +1980,7 @@ function init() {
   fitCanvas();
   drawLoop();
   updateUI();
+  checkMicPermission(); // ブロック済みなら先回りして案内を出す
 
   if (!isSupported) {
     showError("お使いのブラウザは録音機能に対応していないようです。最新のChrome・Edge・Safariなどで開いてみてください。", true);
